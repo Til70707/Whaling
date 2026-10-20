@@ -1,0 +1,841 @@
+<!doctype html>
+<html lang="sl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Kitolov</title>
+<meta name="description" content="Radar za Solana meme coine: kiti, likvidnost, prevare in papirnati dnevnik.">
+<meta name="theme-color" content="#0b1520" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef3f6" media="(prefers-color-scheme: light)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kitolov">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Plast "sonar": temno morje, en sam turkizni poudarek, semantične barve samo za stanje. */
+:root{
+  --bg:#eef3f6; --surface:#ffffff; --surface2:#e3ebf0; --line:#cfdbe3;
+  --fg:#0f2232; --muted:#587084; --accent:#0d8379; --accent-ink:#ffffff;
+  --up:#1f9a5c; --down:#cc3b3b; --warn:#b07a0c;
+  --up-bg:#dff3e8; --down-bg:#fbe3e1; --warn-bg:#f8edd2;
+  --shadow:0 1px 2px rgba(15,34,50,.06),0 6px 18px rgba(15,34,50,.06);
+  --f-display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --r:14px; --tabh:64px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0b1520; --surface:#112131; --surface2:#17293b; --line:#233a50;
+  --fg:#e4edf4; --muted:#8aa1b4; --accent:#5fd0c5; --accent-ink:#06211f;
+  --up:#4cd28a; --down:#f2726a; --warn:#f0b84a;
+  --up-bg:#123326; --down-bg:#3a1a1c; --warn-bg:#3a2d12;
+  --shadow:0 1px 2px rgba(0,0,0,.3);
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0b1520; --surface:#112131; --surface2:#17293b; --line:#233a50;
+  --fg:#e4edf4; --muted:#8aa1b4; --accent:#5fd0c5; --accent-ink:#06211f;
+  --up:#4cd28a; --down:#f2726a; --warn:#f0b84a;
+  --up-bg:#123326; --down-bg:#3a1a1c; --warn-bg:#3a2d12;
+  --shadow:0 1px 2px rgba(0,0,0,.3);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:15px/1.45 var(--f-body);-webkit-font-smoothing:antialiased;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-bottom:calc(var(--tabh) + env(safe-area-inset-bottom,0px) + 24px)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--bg)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:560px;margin:0 auto}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.muted{color:var(--muted)}
+.up{color:var(--up)} .down{color:var(--down)} .warnc{color:var(--warn)}
+
+/* header */
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);padding-block:14px 10px;display:flex;align-items:center;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.brand svg{flex:none}
+.brand h1{font:800 22px/1 var(--f-display);margin:0;letter-spacing:-.02em}
+.brand small{display:block;font:500 12px/1.2 var(--f-body);color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iconbtn{width:42px;height:42px;border-radius:12px;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;flex:none}
+.iconbtn[aria-busy="true"] svg{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* tabs */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+nav.tabs .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);height:var(--tabh)}
+nav.tabs button{border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:12px;font-weight:600}
+nav.tabs button[aria-selected="true"]{color:var(--accent)}
+nav.tabs svg{width:22px;height:22px}
+
+/* controls */
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 12px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:600;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.bar select{margin-left:auto;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:7px 10px;font-size:13px}
+.summary{background:var(--surface2);border-radius:var(--r);padding:12px 14px;margin-bottom:12px;font-size:14px}
+.summary b{font-family:var(--f-display);font-size:18px}
+.err{background:var(--down-bg);color:var(--fg);border-radius:var(--r);padding:12px 14px;margin-bottom:12px;font-size:14px}
+
+/* cards */
+.list{display:grid;gap:10px}
+.card{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;box-shadow:var(--shadow)}
+.card.pass{border-color:var(--up);box-shadow:0 0 0 1px var(--up) inset,var(--shadow)}
+.row{display:flex;align-items:center;gap:10px;min-width:0}
+.tok{width:36px;height:36px;border-radius:50%;background:var(--surface2);flex:none;object-fit:cover;display:grid;place-items:center;font:700 13px var(--f-display);color:var(--muted);overflow:hidden}
+.tname{flex:1;min-width:0}
+.tname .sym{font:700 17px/1.1 var(--f-display);letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tname .sub{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.price{text-align:right;flex:none}
+.price .p{font-size:14px}
+.price .c{font-size:12px}
+.score{flex:none;font:600 12px var(--f-mono);border-radius:8px;padding:4px 7px;background:var(--surface2);color:var(--muted)}
+.score.ok{background:var(--up-bg);color:var(--up)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:10px}
+.stat{min-width:0}
+.stat .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.stat .v{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.whale{margin-top:10px;display:flex;align-items:center;gap:8px;font-size:13px;background:var(--surface2);border-radius:10px;padding:7px 10px;min-width:0}
+.whale svg{flex:none}
+.whale span{min-width:0}
+.pressure{height:6px;border-radius:3px;background:var(--down-bg);overflow:hidden;margin-top:8px}
+.pressure i{display:block;height:100%;background:var(--up)}
+.flags{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.flag{font-size:11.5px;font-weight:600;border-radius:6px;padding:3px 7px}
+.flag.bad{background:var(--down-bg);color:var(--down)}
+.flag.warn{background:var(--warn-bg);color:var(--warn)}
+.flag.good{background:var(--up-bg);color:var(--up)}
+.loadingtxt{color:var(--muted);font-size:12.5px}
+.shim{display:inline-block;width:90px;height:10px;border-radius:5px;background:linear-gradient(90deg,var(--surface2),var(--line),var(--surface2));background-size:200% 100%;animation:sh 1.2s infinite linear;vertical-align:middle}
+@keyframes sh{to{background-position:-200% 0}}
+.empty{text-align:center;padding:40px 10px;color:var(--muted)}
+
+/* sheet */
+.sheet{position:fixed;inset:0;z-index:40;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:calc(env(safe-area-inset-bottom,0px) + 28px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.sheet .wrap{padding-top:10px}
+.back{border:0;background:none;color:var(--accent);font-weight:600;padding:10px 0;display:flex;align-items:center;gap:4px}
+.big{font:800 30px/1.05 var(--f-display);letter-spacing:-.02em;margin:6px 0 2px;overflow-wrap:anywhere}
+h2{font:700 16px/1.2 var(--f-display);margin:22px 0 10px;letter-spacing:-.01em}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:4px 14px}
+.check{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
+.check:last-child{border-bottom:0}
+.check .ic{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;margin-top:1px}
+.check .ic.y{background:var(--up-bg);color:var(--up)} .check .ic.n{background:var(--down-bg);color:var(--down)} .check .ic.q{background:var(--surface2);color:var(--muted)}
+.check .t{flex:1;min-width:0}
+.check .t small{display:block;color:var(--muted);font-size:12.5px}
+.verdict{border-radius:var(--r);padding:12px 14px;margin-top:12px;font-size:14px}
+.verdict.y{background:var(--up-bg)} .verdict.n{background:var(--surface2)}
+.verdict b{font-family:var(--f-display);font-size:16px;display:block;margin-bottom:2px}
+.kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.kv div{background:var(--surface);padding:9px 12px;min-width:0}
+.kv .l{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.trades{width:100%;border-collapse:collapse;font-size:13px}
+.trades td{padding:8px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
+.trades tr:last-child td{border-bottom:0}
+.trades a{color:inherit}
+.tablebox{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:2px 10px}
+.links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.links a{display:block;text-align:center;padding:11px 8px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--fg);text-decoration:none;font-weight:600;font-size:14px}
+.primary{width:100%;border:0;border-radius:14px;background:var(--accent);color:var(--accent-ink);font:700 16px var(--f-body);padding:15px;margin-top:10px}
+.secondary{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:10px 14px;font-weight:600;font-size:14px}
+.amount{display:flex;gap:8px;align-items:center;margin-top:14px}
+.amount label{font-size:14px;color:var(--muted)}
+.amount input{width:110px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:9px 10px;font-family:var(--f-mono)}
+.note{font-size:12.5px;color:var(--muted);margin-top:10px}
+
+/* journal */
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px}
+.tile .l{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.tile .v{font:700 22px/1.2 var(--f-mono);margin-top:4px}
+.tile small{color:var(--muted);font-size:12px}
+.compare{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:12px;font-size:14px}
+.compare .r{display:flex;justify-content:space-between;gap:10px;padding:5px 0}
+.jentry{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.jentry .hz{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:10px}
+.jentry .acts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.jentry .acts button{border:1px solid var(--line);background:var(--surface2);border-radius:9px;padding:6px 10px;font-size:13px;font-weight:600}
+.tag{font-size:11px;font-weight:700;border-radius:6px;padding:2px 6px;background:var(--surface2);color:var(--muted)}
+.tag.ok{background:var(--up-bg);color:var(--up)}
+
+/* settings */
+.form{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:4px 14px}
+.field{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.field:last-child{border-bottom:0}
+.field label{flex:1;min-width:0;font-size:14px}
+.field label small{display:block;color:var(--muted);font-size:12px}
+.field input[type=number]{width:100px;border:1px solid var(--line);border-radius:9px;background:var(--surface2);padding:8px;text-align:right;font-family:var(--f-mono)}
+.field input[type=checkbox]{width:22px;height:22px;accent-color:var(--accent)}
+.prose{font-size:14px;max-width:62ch}
+.prose p{margin:0 0 10px}
+textarea{width:100%;min-height:90px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px;font:12px var(--f-mono)}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--tabh) + env(safe-area-inset-bottom,0px) + 14px);z-index:50;
+  background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;max-width:calc(100% - 32px);box-shadow:var(--shadow)}
+sub{font-size:.72em;vertical-align:-.2em}
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}
+@media (max-width:380px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="var(--surface2)"/><circle cx="32" cy="32" r="21" fill="none" stroke="var(--accent)" stroke-opacity=".35" stroke-width="2"/><circle cx="32" cy="32" r="11" fill="none" stroke="var(--accent)" stroke-opacity=".6" stroke-width="2"/><path d="M32 32 L52 14" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"/><circle cx="44" cy="40" r="4" fill="var(--accent)"/></svg>
+      <div style="min-width:0"><h1>Kitolov</h1><small id="status">Solana meme radar</small></div>
+    </div>
+    <button class="iconbtn" id="refresh" aria-label="Osveži podatke"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
+  </header>
+  <main id="view"></main>
+</div>
+
+<nav class="tabs" aria-label="Glavni meni"><div class="in" role="tablist">
+  <button role="tab" data-tab="radar" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 12l6-6"/></svg>Radar</button>
+  <button role="tab" data-tab="journal" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15l4-4 3 3 5-6"/></svg>Dnevnik</button>
+  <button role="tab" data-tab="rules" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Pravila</button>
+</div></nav>
+
+<div class="sheet" id="sheet" hidden></div>
+<div class="toast" id="toast" hidden role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+/* ---------- konfiguracija virov ---------- */
+const GT = "https://api.geckoterminal.com/api/v2";
+const DS = "https://api.dexscreener.com";
+const RC = "https://api.rugcheck.xyz/v1";
+const SKIP_MINTS = new Set([
+  "So11111111111111111111111111111111111111112", // SOL
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
+  "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", // USDT
+]);
+const DEEP_TOP_N = 15;            // koliko coinov analiziramo do kitov in RugChecka
+const DEEP_TTL = 4 * 60e3;        // kako dolgo velja analiza kitov
+const RUG_TTL = 30 * 60e3;        // kako dolgo velja RugCheck
+const AUTO_REFRESH = 120e3;
+
+const DEFAULT_RULES = {
+  minLiq: 30000, minAgeH: 12, whaleMinUsd: 2000, whaleWindowH: 6, minWhaleWallets: 2,
+  requireWhaleNet: true, requireBuyPressure: true, requireNoDanger: true, maxPump24: 300,
+  paperAmount: 100,
+};
+
+/* ---------- pomožne ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const num = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("kitolov." + k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("kitolov." + k, JSON.stringify(v)); } catch {} },
+};
+function fmtUsd(v) {
+  v = num(v); const a = Math.abs(v), s = v < 0 ? "−" : "";
+  if (a >= 1e9) return s + "$" + (a / 1e9).toFixed(2) + " mrd";
+  if (a >= 1e6) return s + "$" + (a / 1e6).toFixed(2) + " mio";
+  if (a >= 1e4) return s + "$" + Math.round(a / 1e3) + "k";
+  if (a >= 1e3) return s + "$" + (a / 1e3).toFixed(1) + "k";
+  return s + "$" + a.toFixed(a < 10 ? 2 : 0);
+}
+/* cene meme coinov: 0.0₅2596 kot na DexScreenerju */
+function fmtPrice(p) {
+  p = num(p); if (!p) return "–";
+  if (p >= 1) return "$" + p.toLocaleString("en-US", { maximumFractionDigits: 4 });
+  if (p >= 0.001) return "$" + p.toPrecision(4);
+  const m = p.toFixed(20).match(/^0\.(0+)(\d{1,4})/);
+  if (!m) return "$" + p.toExponential(3);
+  return "$0.0<sub>" + m[1].length + "</sub>" + m[2];
+}
+function fmtPct(v, digits = 1) {
+  if (v === null || v === undefined || !Number.isFinite(v)) return "–";
+  const s = v > 0 ? "+" : v < 0 ? "−" : "";
+  const a = Math.abs(v);
+  return s + (a >= 1000 ? Math.round(a).toLocaleString("sl-SI") : a.toFixed(digits)) + " %";
+}
+/* slovenska ednina/dvojina/množina: sl(n, ["coin","coina","coini","coinov"]) */
+function sl(n, f) { const m = Math.abs(n) % 100; return m === 1 ? f[0] : m === 2 ? f[1] : m === 3 || m === 4 ? f[2] : f[3]; }
+const bsCount = t => (t.buyers || t.sellers ? [t.buyers, t.sellers] : [t.buys, t.sells]);
+const pctClass = v => (v > 0 ? "up" : v < 0 ? "down" : "muted");
+function fmtAge(ms) {
+  if (!Number.isFinite(ms) || ms < 0 || ms > 20 * 365 * 864e5) return "–";
+  const h = ms / 36e5;
+  if (h < 1) return Math.max(1, Math.round(h * 60)) + " min";
+  if (h < 48) return Math.round(h) + " h";
+  return Math.round(h / 24) + " d";
+}
+const ago = ts => (ts ? "pred " + fmtAge(Date.now() - ts) : "");
+const short = a => (a ? a.slice(0, 4) + "…" + a.slice(-4) : "");
+function hhmm(ts) { const d = new Date(ts); return d.toLocaleTimeString("sl-SI", { hour: "2-digit", minute: "2-digit" }); }
+function dmhm(ts) { const d = new Date(ts); return d.toLocaleDateString("sl-SI", { day: "numeric", month: "numeric" }) + " " + hhmm(ts); }
+
+/* ---------- omrežje z omejitvijo hitrosti ---------- */
+function limiter(gap) {
+  let chain = Promise.resolve(), last = 0;
+  return fn => {
+    const p = chain.then(async () => { const w = last + gap - Date.now(); if (w > 0) await sleep(w); last = Date.now(); return fn(); });
+    chain = p.catch(() => {});
+    return p;
+  };
+}
+const gtQ = limiter(2200);   // GeckoTerminal: ~30 klicev/min
+const rcQ = limiter(800);
+const dsQ = limiter(250);
+async function getJSON(url) {
+  const c = new AbortController(); const t = setTimeout(() => c.abort(), 15000);
+  try {
+    const r = await fetch(url, { signal: c.signal });
+    if (r.status === 429) { const e = new Error("rate"); e.code = 429; throw e; }
+    if (!r.ok) { const e = new Error("HTTP " + r.status); e.code = r.status; throw e; }
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+async function gtGet(path) {
+  try { return await gtQ(() => getJSON(GT + path)); }
+  catch (e) { if (e.code === 429) { await sleep(12000); return gtQ(() => getJSON(GT + path)); } throw e; }
+}
+
+/* ---------- stanje ---------- */
+let rules = { ...DEFAULT_RULES, ...store.get("rules", {}) };
+let journal = store.get("journal", []);
+const state = {
+  pools: store.get("pools", []), updatedAt: store.get("updatedAt", 0),
+  deep: {}, rug: store.get("rug", {}), boosted: {},
+  loading: false, error: null, filter: "all", sort: "rules", tab: "radar",
+  openMint: null, prices: {}, jBusy: false, bought: {},
+};
+
+/* ---------- parsiranje ---------- */
+function parsePools(resp) {
+  if (!resp || !Array.isArray(resp.data)) return [];
+  const inc = new Map((resp.included || []).map(i => [i.id, i.attributes || {}]));
+  return resp.data.map(p => {
+    const a = p.attributes || {};
+    const baseId = p.relationships?.base_token?.data?.id || "";
+    const tok = inc.get(baseId) || {};
+    const mint = tok.address || baseId.replace(/^solana_/, "");
+    const pc = a.price_change_percentage || {}, vol = a.volume_usd || {}, tx = a.transactions || {};
+    const t = k => ({ buys: num(tx[k]?.buys), sells: num(tx[k]?.sells), buyers: num(tx[k]?.buyers), sellers: num(tx[k]?.sellers) });
+    const img = tok.image_url && !/missing/.test(tok.image_url) ? tok.image_url : "";
+    return {
+      pool: a.address, mint,
+      symbol: tok.symbol || (a.name || "").split(" / ")[0] || "?",
+      name: tok.name || a.name || "",
+      img, dex: p.relationships?.dex?.data?.id || "",
+      price: num(a.base_token_price_usd), fdv: num(a.fdv_usd), mcap: num(a.market_cap_usd),
+      liq: num(a.reserve_in_usd), created: Date.parse(a.pool_created_at) || 0,
+      pc: { m5: num(pc.m5), h1: num(pc.h1), h6: num(pc.h6), h24: num(pc.h24) },
+      vol: { m5: num(vol.m5), h1: num(vol.h1), h6: num(vol.h6), h24: num(vol.h24) },
+      tx: { m5: t("m5"), h1: t("h1"), h24: t("h24") },
+    };
+  }).filter(p => p.pool && p.mint && !SKIP_MINTS.has(p.mint));
+}
+function dedupe(pools) {
+  const m = new Map();
+  for (const p of pools) { const o = m.get(p.mint); if (!o || p.vol.h24 > o.vol.h24) m.set(p.mint, p); }
+  return [...m.values()];
+}
+function computeWhale(resp, windowH) {
+  const now = Date.now(), from = now - windowH * 36e5;
+  const all = (resp?.data || []).map(t => {
+    const a = t.attributes || {};
+    return { kind: a.kind, usd: num(a.volume_in_usd), wallet: a.tx_from_address || "", ts: Date.parse(a.block_timestamp) || 0, tx: a.tx_hash || "" };
+  }).filter(t => (t.kind === "buy" || t.kind === "sell") && t.wallet).sort((x, y) => y.ts - x.ts);
+  const recent = all.filter(t => t.ts >= from);
+  const buys = recent.filter(t => t.kind === "buy"), sells = recent.filter(t => t.kind === "sell");
+  const sum = a => a.reduce((s, t) => s + t.usd, 0);
+  const buyWallets = new Set(buys.map(t => t.wallet)), sellWallets = new Set(sells.map(t => t.wallet));
+  return {
+    buyUsd: sum(buys), sellUsd: sum(sells), buyN: buys.length, sellN: sells.length,
+    buyWallets: buyWallets.size, sellWallets: sellWallets.size,
+    lastBuy: buys[0]?.ts || 0, trades: all.slice(0, 25), windowH,
+  };
+}
+
+/* ---------- pravila ---------- */
+function evaluate(p) {
+  const d = state.deep[p.mint], w = d?.whale, rug = state.rug[p.mint];
+  const ageMs = Date.now() - p.created;
+  const out = [];
+  out.push({ k: "liq", label: `Likvidnost vsaj ${fmtUsd(rules.minLiq)}`, ok: p.liq >= rules.minLiq, d: fmtUsd(p.liq) });
+  out.push({ k: "age", label: `Star vsaj ${rules.minAgeH} h`, ok: p.created ? ageMs >= rules.minAgeH * 36e5 : null, d: fmtAge(ageMs) });
+  out.push({ k: "whales", label: `Kupujočih kitov vsaj ${rules.minWhaleWallets} (nakup ≥ ${fmtUsd(rules.whaleMinUsd)}, zadnjih ${rules.whaleWindowH} h)`,
+    ok: w ? w.buyWallets >= rules.minWhaleWallets : null, d: w ? `${w.buyWallets} ${sl(w.buyWallets, ["denarnica kupuje", "denarnici kupujeta", "denarnice kupujejo", "denarnic kupuje"])}` : d?.err ? "ni podatkov" : "nalagam" });
+  if (rules.requireWhaleNet) out.push({ k: "net", label: "Kiti več kupujejo kot prodajajo",
+    ok: w ? w.buyUsd > w.sellUsd : null, d: w ? `${fmtUsd(w.buyUsd)} nakupi / ${fmtUsd(w.sellUsd)} prodaje` : "" });
+  if (rules.requireBuyPressure) {
+    const [b, s] = bsCount(p.tx.h1);
+    out.push({ k: "press", label: "Zadnjo uro več kupcev kot prodajalcev", ok: b + s > 0 ? b > s : null, d: `${b} kupcev / ${s} prodajalcev` });
+  }
+  if (rules.requireNoDanger) {
+    const dangers = rug?.data ? rug.data.risks.filter(r => r.level === "danger") : null;
+    out.push({ k: "rug", label: "RugCheck: brez resnih tveganj", ok: dangers ? dangers.length === 0 : null,
+      d: dangers ? (dangers.length ? dangers.map(r => r.name).join(", ") : "ni resnih tveganj") : rug?.err ? "RugCheck ni dosegljiv (pravilo lahko izklopiš v Pravilih)" : "nalagam" });
+  }
+  out.push({ k: "pump", label: `Ni že izstreljen (rast 24 h pod ${rules.maxPump24} %)`, ok: p.pc.h24 < rules.maxPump24, d: fmtPct(p.pc.h24, 0) });
+  const passed = out.filter(r => r.ok === true).length;
+  return { list: out, passed, total: out.length, unknown: out.filter(r => r.ok === null).length, all: passed === out.length };
+}
+function flags(p) {
+  const f = [], ageH = (Date.now() - p.created) / 36e5, w = state.deep[p.mint]?.whale, rug = state.rug[p.mint]?.data;
+  if (p.created && ageH < 6) f.push(["bad", "Zelo nov (" + fmtAge(ageH * 36e5) + ")"]);
+  if (p.liq < 10000) f.push(["bad", "Zelo malo likvidnosti"]);
+  else if (p.fdv && p.liq / p.fdv < 0.03) f.push(["warn", "Tanka likvidnost glede na vrednost"]);
+  if (p.pc.h24 >= rules.maxPump24) f.push(["warn", "Že " + fmtPct(p.pc.h24, 0) + " v 24 h"]);
+  if (w && w.sellUsd > w.buyUsd * 1.5 && w.sellUsd > 0) f.push(["bad", "Kiti prodajajo"]);
+  if (rug) {
+    rug.risks.filter(r => r.level === "danger").slice(0, 3).forEach(r => f.push(["bad", r.name]));
+  }
+  if (state.boosted[p.mint]) f.push(["warn", "Plačana promocija"]);
+  return f;
+}
+
+/* ---------- nalaganje ---------- */
+async function loadRadar() {
+  if (state.loading) return;
+  state.loading = true; state.error = null; render();
+  try {
+    const [p1, p2, boosts] = await Promise.all([
+      gtGet("/networks/solana/trending_pools?include=base_token&page=1"),
+      gtGet("/networks/solana/trending_pools?include=base_token&page=2").catch(() => null),
+      dsQ(() => getJSON(DS + "/token-boosts/top/v1")).catch(() => null),
+    ]);
+    const pools = dedupe([...parsePools(p1), ...parsePools(p2)]);
+    if (!pools.length) throw new Error("prazno");
+    state.pools = pools; state.updatedAt = Date.now();
+    state.boosted = {};
+    if (Array.isArray(boosts)) boosts.filter(b => b.chainId === "solana").forEach(b => { state.boosted[b.tokenAddress] = num(b.totalAmount) || 1; });
+    store.set("pools", pools); store.set("updatedAt", state.updatedAt);
+  } catch (e) {
+    state.error = e.code === 429
+      ? "GeckoTerminal je začasno omejil število zahtevkov. Počakaj minuto in osveži."
+      : "Podatkov ni bilo mogoče naložiti. Preveri internetno povezavo in poskusi znova." + (state.pools.length ? " Prikazujem zadnje shranjene podatke." : "");
+  }
+  state.loading = false; render();
+  analyzeTop();
+}
+let deepGen = 0;
+async function analyzeTop() {
+  const gen = ++deepGen;
+  const targets = state.pools.slice(0, DEEP_TOP_N);
+  for (const p of targets) {
+    if (gen !== deepGen) return;
+    await analyze(p);
+  }
+}
+const inflight = new Map();
+function analyze(p, force) {
+  const d = state.deep[p.mint];
+  if (!force && d && !d.err && Date.now() - d.at < DEEP_TTL && d.minUsd === rules.whaleMinUsd && d.whale.windowH === rules.whaleWindowH) return Promise.resolve();
+  if (inflight.has(p.mint)) return inflight.get(p.mint);
+  const job = (async () => {
+    const minUsd = rules.whaleMinUsd, winH = rules.whaleWindowH;
+    const tasks = [
+      gtGet(`/networks/solana/pools/${p.pool}/trades?trade_volume_in_usd_greater_than=${Math.max(100, minUsd)}`)
+        .then(r => { state.deep[p.mint] = { at: Date.now(), whale: computeWhale(r, winH), minUsd }; })
+        .catch(() => { state.deep[p.mint] = { at: Date.now(), err: true }; }),
+    ];
+    const rc = state.rug[p.mint];
+    if (!rc || Date.now() - rc.at > RUG_TTL || (rc.err && Date.now() - rc.at > 3 * 60e3)) {
+      tasks.push(rcQ(() => getJSON(`${RC}/tokens/${p.mint}/report/summary`))
+        .then(r => {
+          state.rug[p.mint] = { at: Date.now(), data: {
+            score: num(r.score_normalised ?? r.score), lpLockedPct: r.lpLockedPct ?? null,
+            risks: (r.risks || []).map(x => ({ name: riskSl(x.name || ""), orig: x.name || "", level: x.level || "", desc: x.description || "", value: x.value || "" })),
+          } };
+          pruneRug();
+        })
+        .catch(() => { state.rug[p.mint] = { at: Date.now(), err: true }; }));
+    }
+    await Promise.all(tasks);
+    scheduleRender();
+  })().finally(() => inflight.delete(p.mint));
+  inflight.set(p.mint, job);
+  return job;
+}
+const RISK_SL = [
+  [/mint authority/i, "Lastnik lahko natisne nove žetone"],
+  [/freeze authority/i, "Lastnik lahko zamrzne denarnice"],
+  [/top 10 holders/i, "Top 10 imetnikov ima preveč žetonov"],
+  [/single holder/i, "En imetnik ima preveč žetonov"],
+  [/high holder/i, "Malo imetnikov ima večino žetonov"],
+  [/lp providers/i, "Malo ponudnikov likvidnosti"],
+  [/low liquidity/i, "Nizka likvidnost"],
+  [/lp unlocked|unlocked lp/i, "Velik del likvidnosti ni zaklenjen"],
+  [/mutable metadata/i, "Podatke žetona je mogoče spremeniti"],
+  [/creator.*(rug|history)/i, "Ustvarjalec ima zgodovino prevar"],
+  [/copycat/i, "Posnema znan žeton"],
+  [/low amount of holders|few holders/i, "Zelo malo imetnikov"],
+  [/transfer fee/i, "Pri prenosu se zaračuna provizija"],
+];
+const riskSl = n => (RISK_SL.find(([re]) => re.test(n)) || [0, n])[1];
+function pruneRug() {
+  const keys = Object.keys(state.rug);
+  if (keys.length > 120) keys.sort((a, b) => state.rug[a].at - state.rug[b].at).slice(0, keys.length - 120).forEach(k => delete state.rug[k]);
+  store.set("rug", state.rug);
+}
+let rt = 0;
+function scheduleRender() {
+  if (rt) return;
+  rt = requestAnimationFrame(() => {
+    rt = 0;
+    if (document.activeElement?.id === "sort" && !state.openMint) { rt = setTimeout(() => { rt = 0; scheduleRender(); }, 700); return; } // ne zapri odprtega izbirnika
+    render();
+  });
+}
+
+/* ---------- dnevnik ---------- */
+const HZ = [{ k: "p1h", ms: 36e5, label: "1 h" }, { k: "p24h", ms: 864e5, label: "24 h" }];
+function saveJournal() { store.set("journal", journal); }
+function paperBuy(p, amount) {
+  if (Date.now() - state.updatedAt > 10 * 60e3) { toast("Cene so zastarele. Najprej osveži radar."); return false; }
+  const ev = evaluate(p);
+  const e = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    mint: p.mint, pool: p.pool, symbol: p.symbol, name: p.name, img: p.img,
+    entryTs: Date.now(), entryPrice: p.price, amount: Math.max(1, num(amount) || rules.paperAmount),
+    passed: ev.passed, total: ev.total, allRules: ev.all, status: "open",
+  };
+  if (!e.entryPrice) { toast("Cena ni znana, poskusi znova po osvežitvi."); return false; }
+  journal.unshift(e); saveJournal();
+  toast(`Papirnato kupljeno: ${fmtUsd(e.amount)} ${p.symbol}`);
+  return true;
+}
+async function refreshJournal() {
+  if (state.jBusy || !journal.length) return;
+  state.jBusy = true; render();
+  try {
+    const mints = [...new Set(journal.filter(e => e.status === "open").map(e => e.mint))];
+    for (let i = 0; i < mints.length; i += 30) {
+      const chunk = mints.slice(i, i + 30);
+      const pairs = await dsQ(() => getJSON(`${DS}/tokens/v1/solana/${chunk.join(",")}`)).catch(() => []);
+      const best = {};
+      (Array.isArray(pairs) ? pairs : pairs?.pairs || []).forEach(pr => {
+        const m = pr.baseToken?.address; if (!m || !chunk.includes(m)) return;
+        const liq = num(pr.liquidity?.usd);
+        if (!best[m] || liq > best[m].liq) best[m] = { liq, price: num(pr.priceUsd) };
+      });
+      Object.entries(best).forEach(([m, v]) => { if (v.price) state.prices[m] = { price: v.price, at: Date.now() }; });
+    }
+    render();
+    // pretekle cene ob +1 h in +24 h (iz sveč GeckoTerminal)
+    for (const e of journal) {
+      for (const h of HZ) {
+        if (e[h.k] != null || Date.now() < e.entryTs + h.ms + 6 * 60e3) continue;
+        const before = Math.ceil((e.entryTs + h.ms) / 1000); // sveča, ki vsebuje ta trenutek (zapre se ≤5 min kasneje)
+        try {
+          const r = await gtGet(`/networks/solana/pools/${e.pool}/ohlcv/minute?aggregate=5&before_timestamp=${before}&limit=1&currency=usd&token=base`);
+          const c = r?.data?.attributes?.ohlcv_list?.[0];
+          if (c && Math.abs(c[0] * 1000 - (e.entryTs + h.ms)) < 3 * 36e5 && num(c[4]) > 0) { e[h.k] = num(c[4]); saveJournal(); render(); }
+          else if (Date.now() > e.entryTs + h.ms + 7 * 864e5) { e[h.k] = 0; saveJournal(); } // coin je izginil
+        } catch {}
+      }
+    }
+  } finally { state.jBusy = false; render(); }
+}
+const ret = (p, e) => (p && e.entryPrice ? p / e.entryPrice - 1 : null);
+function curPrice(e) { return e.status === "closed" ? e.exitPrice : state.prices[e.mint]?.price ?? null; }
+function journalStats(list) {
+  const done = list.filter(e => e.p24h != null);
+  const r24 = done.map(e => (e.p24h === 0 ? -1 : ret(e.p24h, e)));
+  const wins = r24.filter(r => r > 0).length;
+  const avg = r24.length ? r24.reduce((a, b) => a + b, 0) / r24.length : null;
+  const pnl = r24.reduce((s, r, i) => s + r * done[i].amount, 0);
+  return { n: done.length, wins, rate: done.length ? wins / done.length : null, avg, pnl };
+}
+
+/* ---------- prikaz ---------- */
+function tokImg(p, size = 36) {
+  const letter = esc((p.symbol || "?").slice(0, 2).toUpperCase());
+  return p.img
+    ? `<img class="tok" src="${esc(p.img)}" alt="" width="${size}" height="${size}" loading="lazy" referrerpolicy="no-referrer" data-l="${letter}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'tok',textContent:this.dataset.l}))">`
+    : `<span class="tok">${letter}</span>`;
+}
+function whaleLine(p) {
+  const d = state.deep[p.mint];
+  const icon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 13c2-4 7-6 11-4 2 1 3 3 3 5 1-1 3-1 4 0-1 1-2 2-4 2-3 3-9 3-12 0-1-1-2-2-2-3z"/><circle cx="8" cy="12" r=".6" fill="currentColor"/></svg>`;
+  if (!d) return state.pools.indexOf(p) < DEEP_TOP_N
+    ? `<div class="whale">${icon}<span class="loadingtxt">Iščem kite <span class="shim"></span></span></div>`
+    : `<div class="whale">${icon}<span class="loadingtxt">Kiti: odpri za analizo</span></div>`;
+  if (d.err) return `<div class="whale">${icon}<span class="loadingtxt">Podatki o kitih trenutno niso dosegljivi</span></div>`;
+  const w = d.whale;
+  if (!w.buyN && !w.sellN) return `<div class="whale">${icon}<span class="muted">Ni velikih poslov v zadnjih ${w.windowH} h</span></div>`;
+  const cls = w.buyUsd > w.sellUsd ? "up" : "down";
+  return `<div class="whale">${icon}<span><b class="${cls}">${w.buyWallets} ${sl(w.buyWallets, ["kit je kupil", "kita sta kupila", "kiti so kupili", "kitov je kupilo"])}</b> <span class="num">${fmtUsd(w.buyUsd)}</span> · prodali <span class="num">${fmtUsd(w.sellUsd)}</span> <span class="muted">(${w.windowH} h)</span></span></div>`;
+}
+function card(p) {
+  const ev = evaluate(p), fl = flags(p);
+  const [b, s] = bsCount(p.tx.h1), share = b + s ? (b / (b + s)) * 100 : 50;
+  const accel = p.vol.h24 ? p.vol.h1 / (p.vol.h24 / 24) : 0;
+  return `<button class="card${ev.all ? " pass" : ""}" data-open="${esc(p.mint)}">
+    <div class="row">${tokImg(p)}
+      <div class="tname"><div class="sym">${esc(p.symbol)}</div><div class="sub">${esc(p.name)} · ${fmtAge(Date.now() - p.created)}</div></div>
+      <div class="price"><div class="p num">${fmtPrice(p.price)}</div><div class="c num ${pctClass(p.pc.h1)}">${fmtPct(p.pc.h1)} 1 h</div></div>
+      <span class="score${ev.all ? " ok" : ""}" title="Izpolnjena pravila">${ev.passed}/${ev.total}</span>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="l">24 h</div><div class="v num ${pctClass(p.pc.h24)}">${fmtPct(p.pc.h24, 0)}</div></div>
+      <div class="stat"><div class="l">Likvidnost</div><div class="v num">${fmtUsd(p.liq)}</div></div>
+      <div class="stat"><div class="l">Volumen 1 h</div><div class="v num">${fmtUsd(p.vol.h1)}</div></div>
+      <div class="stat"><div class="l">Pospešek</div><div class="v num ${accel >= 2 ? "up" : ""}">${accel ? accel.toFixed(1) + "×" : "–"}</div></div>
+    </div>
+    <div class="pressure" title="Kupci proti prodajalcem v zadnji uri"><i style="width:${share.toFixed(0)}%"></i></div>
+    ${whaleLine(p)}
+    ${fl.length ? `<div class="flags">${fl.map(([l, x]) => `<span class="flag ${l}">${esc(x)}</span>`).join("")}</div>` : ""}
+  </button>`;
+}
+function viewRadar() {
+  let list = state.pools.slice();
+  const evs = new Map(list.map(p => [p.mint, evaluate(p)]));
+  if (state.filter === "rules") list = list.filter(p => evs.get(p.mint).all);
+  if (state.filter === "whales") list = list.filter(p => { const w = state.deep[p.mint]?.whale; return w && w.buyWallets >= 1 && w.buyUsd > w.sellUsd; });
+  const net = p => { const w = state.deep[p.mint]?.whale; return w ? w.buyUsd - w.sellUsd : -Infinity; };
+  if (state.sort === "rules") list.sort((a, b) => evs.get(b.mint).passed - evs.get(a.mint).passed || net(b) - net(a));
+  if (state.sort === "whales") list.sort((a, b) => net(b) - net(a));
+  if (state.sort === "volume") list.sort((a, b) => b.vol.h1 - a.vol.h1);
+  if (state.sort === "accel") list.sort((a, b) => (b.vol.h24 ? b.vol.h1 / b.vol.h24 : 0) - (a.vol.h24 ? a.vol.h1 / a.vol.h24 : 0));
+  const passing = state.pools.filter(p => evs.get(p.mint).all).length;
+  const pending = state.pools.slice(0, DEEP_TOP_N).filter(p => !state.deep[p.mint]).length;
+  const chip = (k, l) => `<button class="chip" data-filter="${k}" aria-pressed="${state.filter === k}">${l}</button>`;
+  return `
+    ${state.error ? `<div class="err">${esc(state.error)}</div>` : ""}
+    ${state.pools.length ? `<div class="summary"><b class="num">${passing}</b> ${sl(passing, ["coin izpolnjuje", "coina izpolnjujeta", "coini izpolnjujejo", "coinov izpolnjuje"])} vsa tvoja pravila
+      <span class="muted">· ${state.pools.length} v trendu${pending ? ` · analiziram še ${pending}` : ""}</span></div>` : ""}
+    <div class="bar">${chip("all", "Vse")}${chip("rules", "Moja pravila")}${chip("whales", "Kiti kupujejo")}
+      <select id="sort" aria-label="Razvrsti">
+        <option value="rules"${state.sort === "rules" ? " selected" : ""}>Po pravilih</option>
+        <option value="whales"${state.sort === "whales" ? " selected" : ""}>Po kitih</option>
+        <option value="accel"${state.sort === "accel" ? " selected" : ""}>Po pospešku</option>
+        <option value="volume"${state.sort === "volume" ? " selected" : ""}>Po volumnu</option>
+      </select></div>
+    <div class="list">${list.length ? list.map(card).join("")
+      : state.loading ? `<div class="empty">Nalagam coine v trendu…</div>`
+      : state.pools.length ? `<div class="empty">Trenutno noben coin ne ustreza temu filtru.<br>To je tudi informacija.</div>`
+      : `<div class="empty">Ni podatkov. Tapni osveži zgoraj desno.</div>`}</div>`;
+}
+function viewDetail(p) {
+  const ev = evaluate(p), fl = flags(p), d = state.deep[p.mint], w = d?.whale, rug = state.rug[p.mint];
+  const ic = ok => ok === true ? `<span class="ic y">✓</span>` : ok === false ? `<span class="ic n">✕</span>` : `<span class="ic q">?</span>`;
+  const trades = w ? w.trades.slice(0, 15) : [];
+  const accel = p.vol.h24 ? p.vol.h1 / (p.vol.h24 / 24) : 0;
+  return `<div class="wrap">
+    <button class="back" data-close>‹ Nazaj</button>
+    <div class="row">${tokImg(p, 48)}<div class="tname"><div class="big">${esc(p.symbol)}</div><div class="sub">${esc(p.name)}</div></div></div>
+    <div class="row" style="margin-top:8px;gap:14px;flex-wrap:wrap"><span class="num" style="font-size:20px">${fmtPrice(p.price)}</span>
+      <span class="num ${pctClass(p.pc.h1)}">${fmtPct(p.pc.h1)} 1 h</span><span class="num ${pctClass(p.pc.h24)}">${fmtPct(p.pc.h24, 0)} 24 h</span></div>
+
+    <div class="verdict ${ev.all ? "y" : "n"}"><b>${ev.all ? "Izpolnjuje vsa tvoja pravila" : `Izpolnjuje ${ev.passed} od ${ev.total} pravil`}</b>
+      ${ev.all ? "To pomeni, da ustreza tvojim pogojem, ne da bo cena zrasla. Najprej ga preizkusi papirnato." : ev.unknown ? "Nekateri podatki se še nalagajo." : "Po tvojih pravilih ga izpusti."}</div>
+
+    <h2>Tvoja pravila</h2>
+    <div class="panel">${ev.list.map(r => `<div class="check">${ic(r.ok)}<div class="t">${esc(r.label)}<small>${esc(r.d || "")}</small></div></div>`).join("")}</div>
+
+    ${fl.length ? `<h2>Opozorila</h2><div class="flags">${fl.map(([l, x]) => `<span class="flag ${l}">${esc(x)}</span>`).join("")}</div>` : ""}
+
+    <h2>Kiti (posli nad ${fmtUsd(rules.whaleMinUsd)}, zadnjih 24 h)</h2>
+    ${!d ? `<p class="loadingtxt">Nalagam velike posle <span class="shim"></span></p>`
+      : d.err ? `<p class="muted">GeckoTerminal trenutno ne vrača poslov. Poskusi čez minuto.</p>`
+      : !trades.length ? `<p class="muted">Ni poslov nad ${fmtUsd(rules.whaleMinUsd)} v zadnjih 24 h.</p>`
+      : `<div class="tablebox"><table class="trades"><tbody>${trades.map(t => `<tr>
+          <td class="muted num">${hhmm(t.ts)}</td>
+          <td><span class="flag ${t.kind === "buy" ? "good" : "bad"}">${t.kind === "buy" ? "nakup" : "prodaja"}</span></td>
+          <td class="num" style="text-align:right">${fmtUsd(t.usd)}</td>
+          <td class="num"><a href="https://solscan.io/account/${esc(t.wallet)}" target="_blank" rel="noopener">${esc(short(t.wallet))}</a></td>
+        </tr>`).join("")}</tbody></table></div>`}
+
+    <h2>Številke</h2>
+    <div class="kv">
+      <div><div class="l">Likvidnost</div><div class="num">${fmtUsd(p.liq)}</div></div>
+      <div><div class="l">Tržna vrednost</div><div class="num">${fmtUsd(p.mcap || p.fdv)}</div></div>
+      <div><div class="l">Volumen 1 h</div><div class="num">${fmtUsd(p.vol.h1)}</div></div>
+      <div><div class="l">Volumen 24 h</div><div class="num">${fmtUsd(p.vol.h24)}</div></div>
+      <div><div class="l">Pospešek volumna</div><div class="num">${accel ? accel.toFixed(1) + "× povprečja" : "–"}</div></div>
+      <div><div class="l">Starost para</div><div class="num">${fmtAge(Date.now() - p.created)}</div></div>
+      <div><div class="l">Kupci / prodajalci 1 h</div><div class="num">${bsCount(p.tx.h1).join(" / ")}</div></div>
+      <div><div class="l">RugCheck ocena</div><div class="num">${rug?.data ? rug.data.score + " <span class='muted'>(nižje je bolje)</span>" : rug?.err ? "ni dosegljivo" : "…"}</div></div>
+    </div>
+    ${rug?.data?.risks?.length ? `<h2>RugCheck tveganja</h2><div class="panel">${rug.data.risks.map(r => `<div class="check">${r.level === "danger" ? `<span class="ic n">!</span>` : `<span class="ic q">i</span>`}<div class="t">${esc(r.name)}<small>${esc(r.desc)}${r.value ? " · " + esc(r.value) : ""}</small></div></div>`).join("")}</div>` : ""}
+
+    <h2>Preveri sam</h2>
+    <div class="links">
+      <a href="https://dexscreener.com/solana/${esc(p.pool)}" target="_blank" rel="noopener">Graf (DexScreener)</a>
+      <a href="https://x.com/search?q=${encodeURIComponent("$" + p.symbol)}&f=live" target="_blank" rel="noopener">Kaj pravijo na X</a>
+      <a href="https://rugcheck.xyz/tokens/${esc(p.mint)}" target="_blank" rel="noopener">RugCheck poročilo</a>
+      <a href="https://solscan.io/token/${esc(p.mint)}#holders" target="_blank" rel="noopener">Imetniki (Solscan)</a>
+    </div>
+
+    <h2>Papirnato trgovanje</h2>
+    <div class="amount"><label for="amt">Znesek ($)</label><input id="amt" type="number" inputmode="decimal" min="1" step="1" value="${esc(rules.paperAmount)}"></div>
+    ${state.bought[p.mint] ? `<button class="primary" disabled style="opacity:.6">Dodano v dnevnik</button>` : `<button class="primary" data-paper="${esc(p.mint)}">Papirnato kupi</button>`}
+    <p class="note">Nič se ne kupi zares. Dnevnik si zapiše ceno zdaj in čez 1 h ter 24 h izmeri, kaj bi se zgodilo.</p>
+  </div>`;
+}
+function viewJournal() {
+  if (!journal.length) return `<div class="empty"><p><b>Dnevnik je prazen.</b></p><p>Na radarju odpri coin in tapni »Papirnato kupi«. Čez 24 h boš videl, ali bi zaslužil.</p></div>`;
+  const all = journalStats(journal), rulesOk = journalStats(journal.filter(e => e.allRules)), rulesNo = journalStats(journal.filter(e => !e.allRules));
+  const openVal = journal.reduce((s, e) => { if (e.status !== "open") return s; const r = ret(curPrice(e), e); return r == null ? s : s + r * e.amount; }, 0);
+  const rowStat = (label, st) => `<div class="r"><span>${label}</span><span class="num">${st.n ? `${Math.round(st.rate * 100)} % uspešnih · povpr. <span class="${pctClass(st.avg)}">${fmtPct(st.avg * 100)}</span>` : `<span class="muted">še ni rezultatov</span>`}</span></div>`;
+  return `
+    <div class="tiles">
+      <div class="tile"><div class="l">Uspešnost po 24 h</div><div class="v">${all.rate == null ? "–" : Math.round(all.rate * 100) + " %"}</div><small>${all.n} od ${journal.length} izmerjenih</small></div>
+      <div class="tile"><div class="l">Rezultat po 24 h</div><div class="v ${pctClass(all.pnl)}">${all.n ? fmtUsd(all.pnl) : "–"}</div><small>če bi zares vložil</small></div>
+      <div class="tile"><div class="l">Povprečje na posel</div><div class="v ${pctClass(all.avg)}">${all.avg == null ? "–" : fmtPct(all.avg * 100)}</div><small>po 24 h</small></div>
+      <div class="tile"><div class="l">Odprto zdaj</div><div class="v ${pctClass(openVal)}">${fmtUsd(openVal)}</div><small>${state.jBusy ? "osvežujem cene…" : "po trenutnih cenah"}</small></div>
+    </div>
+    <div class="compare"><b>Ali tvoja pravila delujejo?</b>
+      ${rowStat("Izpolnjevali vsa pravila", rulesOk)}${rowStat("Ostali", rulesNo)}
+      <p class="note" style="margin:6px 0 0">Ko imaš vsaj 20 izmerjenih poslov, ta primerjava pokaže, ali pravila res izboljšajo rezultat ali je bila le sreča.</p></div>
+    <div class="list">${journal.map(e => {
+      const cp = curPrice(e), r = ret(cp, e);
+      const hz = h => { const v = e[h.k]; if (v == null) return `<div class="stat"><div class="l">${h.label}</div><div class="v muted">${Date.now() < e.entryTs + h.ms ? "čakam" : "merim…"}</div></div>`;
+        const rr = v === 0 ? -1 : ret(v, e); return `<div class="stat"><div class="l">${h.label}</div><div class="v num ${pctClass(rr)}">${fmtPct(rr * 100)}</div></div>`; };
+      return `<div class="jentry">
+        <div class="row">${tokImg(e)}<div class="tname"><div class="sym">${esc(e.symbol)} <span class="tag${e.allRules ? " ok" : ""}">${esc(e.passed)}/${esc(e.total)}</span></div><div class="sub">${fmtUsd(e.amount)} · ${dmhm(e.entryTs)} · vstop ${fmtPrice(e.entryPrice)}</div></div></div>
+        <div class="hz">${HZ.map(hz).join("")}<div class="stat"><div class="l">${e.status === "closed" ? "Prodano" : "Zdaj"}</div><div class="v num ${pctClass(r)}">${r == null ? "–" : fmtPct(r * 100)}</div></div></div>
+        <div class="acts">${e.status === "open" ? `<button data-close-pos="${esc(e.id)}">Papirnato prodaj</button>` : ""}<button data-del="${esc(e.id)}">Izbriši</button></div>
+      </div>`; }).join("")}</div>`;
+}
+function viewRules() {
+  const n = (k, label, hint, step = 1) => `<div class="field"><label for="r-${k}">${label}<small>${hint}</small></label><input id="r-${k}" type="number" inputmode="decimal" step="${step}" min="0" data-rule="${k}" value="${esc(rules[k])}"></div>`;
+  const c = (k, label, hint) => `<div class="field"><label for="r-${k}">${label}<small>${hint}</small></label><input id="r-${k}" type="checkbox" data-rule="${k}"${rules[k] ? " checked" : ""}></div>`;
+  return `
+    <div class="form">
+      ${n("minLiq", "Najmanjša likvidnost ($)", "Manj likvidnosti pomeni, da težko prodaš.", 1000)}
+      ${n("minAgeH", "Najmanjša starost (ure)", "Večina prevar se zgodi v prvih urah.")}
+      ${n("whaleMinUsd", "Kit je nakup od ($)", "Posel nad tem zneskom štejem kot kit.", 100)}
+      ${n("whaleWindowH", "Okno za kite (ure)", "Koliko nazaj gledam velike posle.")}
+      ${n("minWhaleWallets", "Najmanj različnih kitov", "En sam kit je lahko tudi ustvarjalec coina.")}
+      ${n("maxPump24", "Največja rast v 24 h (%)", "Nad tem je coin verjetno že blizu vrha.", 10)}
+      ${c("requireWhaleNet", "Kiti morajo neto kupovati", "Vsota nakupov kitov večja od prodaj.")}
+      ${c("requireBuyPressure", "Več kupcev kot prodajalcev", "V zadnji uri.")}
+      ${c("requireNoDanger", "Brez resnih tveganj na RugCheck", "Npr. lastnik lahko natisne nove žetone ali zamrzne račune.")}
+      ${n("paperAmount", "Privzeti papirnati znesek ($)", "Koliko »vložiš« v vsak papirnati posel.", 10)}
+    </div>
+    <p><button class="secondary" id="resetRules">Ponastavi pravila</button></p>
+
+    <h2>Kako deluje</h2>
+    <div class="prose">
+      <p><b>Radar</b> vsaki 2 minuti prebere coine v trendu na Solani (GeckoTerminal). Za najbolj vroče poišče posamezne velike posle (kite) in preveri pogodbo žetona na RugChecku. DexScreener označi coine, ki imajo plačano promocijo.</p>
+      <p><b>Pravila</b> so tvoja. Aplikacija ti ne pove, kaj kupiti. Pokaže samo, kateri coini ustrezajo pogojem, ki si jih nastavil sam.</p>
+      <p><b>Kiti niso zagotovilo.</b> Velik nakup je lahko ustvarjalec coina, ki si sam kupuje, da privabi druge, ali bot, ki čez nekaj minut proda. Zato pravilo zahteva več različnih denarnic in neto nakupe.</p>
+      <p><b>Dnevnik</b> je test. Če po 20 ali več papirnatih poslih tisti, ki izpolnjujejo pravila, niso jasno boljši od ostalih, pravila ne delujejo. Takrat jih spremeni ali pa ne vlagaj.</p>
+      <p class="muted">Kitolov ni finančni nasvet. Meme coini lahko v nekaj minutah izgubijo večino vrednosti. Vlagaj samo denar, ki si ga lahko privoščiš izgubiti.</p>
+    </div>
+
+    <h2>Varnostna kopija dnevnika</h2>
+    <div class="prose"><p class="muted">Dnevnik je shranjen samo v tem telefonu. Občasno ga kopiraj, da ga ne izgubiš.</p></div>
+    <p style="display:flex;gap:8px;flex-wrap:wrap"><button class="secondary" id="copyBackup">Kopiraj dnevnik</button><button class="secondary" id="showImport">Uvozi dnevnik</button></p>
+    <div id="importBox" hidden><label for="importTxt" class="muted" style="font-size:13px">Prilepi kopijo:</label><textarea id="importTxt"></textarea><p><button class="secondary" id="doImport">Uvozi</button></p></div>`;
+}
+function render() {
+  $("#refresh").setAttribute("aria-busy", state.loading || state.jBusy ? "true" : "false");
+  $("#status").textContent = state.loading ? "Nalagam…" : state.updatedAt ? "Posodobljeno " + hhmm(state.updatedAt) : "Solana meme radar";
+  document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === state.tab ? "true" : "false"));
+  const v = $("#view");
+  const focusId = document.activeElement?.id;
+  if (state.tab === "radar") v.innerHTML = viewRadar();
+  else if (state.tab === "journal") v.innerHTML = viewJournal();
+  else if (state.tab === "rules" && !v.querySelector(".form")) v.innerHTML = viewRules();
+  const sh = $("#sheet");
+  if (state.openMint) {
+    const p = state.pools.find(x => x.mint === state.openMint);
+    if (p) { const st = sh.scrollTop, amt = $("#amt", sh)?.value; sh.innerHTML = viewDetail(p); sh.hidden = false; sh.scrollTop = st; if (amt) $("#amt", sh).value = amt; }
+  } else sh.hidden = true;
+  if (focusId && (state.tab !== "rules" || state.openMint) && document.activeElement?.id !== focusId) { const el = document.getElementById(focusId); if (el) el.focus({ preventScroll: true }); }
+}
+let toastT = 0;
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (t.hidden = true), 2600); }
+
+/* ---------- dogodki ---------- */
+document.addEventListener("click", async ev => {
+  const el = ev.target.closest("button,[data-open]"); if (!el) return;
+  if (el.dataset.tab) {
+    state.tab = el.dataset.tab; $("#view").innerHTML = ""; render(); window.scrollTo(0, 0);
+    if (state.tab === "journal") refreshJournal();
+    return;
+  }
+  if (el.dataset.filter) { state.filter = el.dataset.filter; render(); return; }
+  if (el.dataset.open) {
+    state.openMint = el.dataset.open; render(); $("#sheet").scrollTop = 0;
+    const p = state.pools.find(x => x.mint === state.openMint); if (p) analyze(p);
+    history.pushState({ sheet: 1 }, ""); return;
+  }
+  if (el.hasAttribute("data-close")) { history.back(); return; }
+  if (el.dataset.paper) {
+    const p = state.pools.find(x => x.mint === el.dataset.paper);
+    if (p && !state.bought[p.mint]) { if (paperBuy(p, $("#amt")?.value)) { state.bought[p.mint] = Date.now(); render(); } }
+    return;
+  }
+  if (el.dataset.closePos) {
+    const e = journal.find(x => x.id === el.dataset.closePos), cp = e && state.prices[e.mint]?.price;
+    if (!e) return;
+    if (!cp) { toast("Trenutna cena še ni naložena. Poskusi čez trenutek."); refreshJournal(); return; }
+    e.status = "closed"; e.exitPrice = cp; e.exitTs = Date.now(); saveJournal(); render(); return;
+  }
+  if (el.dataset.del) {
+    if (el.dataset.confirm !== "1") { el.dataset.confirm = "1"; el.textContent = "Res izbrišem?"; return; }
+    journal = journal.filter(x => x.id !== el.dataset.del); saveJournal(); render(); return;
+  }
+  if (el.id === "refresh") { if (state.tab === "journal") refreshJournal(); else { state.deep = {}; loadRadar(); } return; }
+  if (el.id === "resetRules") { const wch = rules.whaleMinUsd !== DEFAULT_RULES.whaleMinUsd || rules.whaleWindowH !== DEFAULT_RULES.whaleWindowH; rules = { ...DEFAULT_RULES }; if (wch) { state.deep = {}; analyzeTop(); } store.set("rules", rules); $("#view").innerHTML = ""; render(); toast("Pravila ponastavljena"); return; }
+  if (el.id === "copyBackup") {
+    const txt = JSON.stringify(journal);
+    try { await navigator.clipboard.writeText(txt); toast("Dnevnik kopiran"); }
+    catch { $("#importBox").hidden = false; const ta = $("#importTxt"); ta.value = txt; ta.select(); toast("Označeno, kopiraj ročno"); }
+    return;
+  }
+  if (el.id === "showImport") { $("#importBox").hidden = false; $("#importTxt").value = ""; $("#importTxt").focus(); return; }
+  if (el.id === "doImport") {
+    try {
+      const arr = JSON.parse($("#importTxt").value);
+      if (!Array.isArray(arr)) throw 0;
+      const ids = new Set(journal.map(e => e.id));
+      const opt = v => (v == null ? undefined : num(v));
+      const add = arr.filter(e => e && typeof e === "object" && e.id && typeof e.mint === "string" && num(e.entryPrice) > 0 && !ids.has(String(e.id)))
+        .map(e => ({ id: String(e.id), mint: e.mint, pool: String(e.pool || ""), symbol: String(e.symbol || "?"), name: String(e.name || ""),
+          img: typeof e.img === "string" ? e.img : "", entryTs: num(e.entryTs) || Date.now(), entryPrice: num(e.entryPrice),
+          amount: num(e.amount) || rules.paperAmount, passed: num(e.passed), total: num(e.total), allRules: e.allRules === true,
+          status: e.status === "closed" && num(e.exitPrice) > 0 ? "closed" : "open", exitPrice: opt(e.exitPrice), exitTs: opt(e.exitTs),
+          p1h: opt(e.p1h), p24h: opt(e.p24h) }));
+      journal = [...add, ...journal].sort((a, b) => b.entryTs - a.entryTs); saveJournal();
+      toast(`Uvoženo: ${add.length}`); $("#importBox").hidden = true;
+    } catch { toast("To ni veljavna kopija dnevnika."); }
+  }
+});
+document.addEventListener("change", ev => {
+  const el = ev.target;
+  if (el.id === "sort") { state.sort = el.value; render(); return; }
+  if (el.dataset.rule) {
+    const k = el.dataset.rule;
+    rules[k] = el.type === "checkbox" ? el.checked : Math.max(0, num(el.value));
+    store.set("rules", rules);
+    if (k === "whaleMinUsd" || k === "whaleWindowH") { state.deep = {}; analyzeTop(); }
+    toast("Shranjeno");
+  }
+});
+window.addEventListener("popstate", () => { if (state.openMint) { state.openMint = null; render(); } });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && state.openMint) history.back(); });
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && Date.now() - state.updatedAt > AUTO_REFRESH) loadRadar();
+});
+setInterval(() => { if (document.visibilityState === "visible" && state.tab === "radar" && !state.openMint) loadRadar(); }, AUTO_REFRESH);
+setInterval(() => { if (document.visibilityState === "visible") scheduleRender(); }, 30e3); // starost in »pred x min«
+
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+render();
+loadRadar();
+</script>
+</body>
+</html>
