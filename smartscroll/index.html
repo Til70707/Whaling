@@ -37,7 +37,7 @@ a{color:inherit}
 /* feed */
 #feed{position:fixed;inset:0;overflow-y:scroll;scroll-snap-type:y mandatory;overscroll-behavior:contain;scrollbar-width:none}
 #feed::-webkit-scrollbar{display:none}
-.slide{position:relative;height:100vh;height:100dvh;scroll-snap-align:start;scroll-snap-stop:always;overflow:hidden;isolation:isolate}
+.slide{content-visibility:auto;contain-intrinsic-size:auto 100vh;position:relative;height:100%;scroll-snap-align:start;scroll-snap-stop:always;overflow:hidden;isolation:isolate}
 .bg{position:absolute;inset:0;z-index:-2;background:#111}
 .bg .blur{position:absolute;inset:-40px;background-size:cover;background-position:center;filter:blur(28px) brightness(.55) saturate(1.2);transform:scale(1.1)}
 .bg .pic{position:absolute;inset:0;background-size:cover;background-position:center;transform-origin:var(--ox,50%) var(--oy,40%)}
@@ -162,7 +162,7 @@ a{color:inherit}
 const API = "https://en.wikipedia.org/api/rest_v1";
 const QUIZ_EVERY = 5;
 const MAX_CHARS = 420;
-const BLOCK = /porn|xxx|onlyfans|hentai|sex(ual)? (position|act)|nude|erotic/i;
+const BLOCK = /porn|onlyfans|hentai|\bsex(ual|y)?\b|\bnud(e|ity|ism|ist)\b|erotic|fetish|\bbdsm\b|\bescort\b|\bstripper|\brape\b|incest|camgirl/i;
 const SKIP_TITLES = /^(Main_Page|Special:|Wikipedia:|File:|Portal:|Help:|Template:|Category:)/;
 
 /* ---------- helpers ---------- */
@@ -173,7 +173,18 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem("ss." + k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem("ss." + k, JSON.stringify(v)); } catch {} },
 };
-const stripHtml = h => { const d = document.createElement("div"); d.innerHTML = h || ""; return (d.textContent || "").replace(/\s+/g, " ").trim(); };
+// DOMParser: inert document, so <img onerror> etc. in the HTML never run or load (a detached div would)
+const stripHtml = h => (new DOMParser().parseFromString(String(h || ""), "text/html").body.textContent || "").replace(/\s+/g, " ").trim();
+// safe inside style="background-image:url('...')": entity-escaping alone is undone by the HTML parser before CSS sees it
+const cssUrl = u => esc(/^https:\/\//.test(u || "") ? String(u).replace(/["'()\\\s]/g, c => "%" + c.charCodeAt(0).toString(16).padStart(2, "0")) : "");
+// originals can be huge (tens of MP); iOS kills tabs that decode many of them. Use a 1280px thumbnail instead.
+function sizedImg(o, t) {
+  if (!o?.source) return t?.source || "";
+  if ((o.width || 0) <= 1280 && /\.(jpe?g|png|gif|webp)$/i.test(o.source)) return o.source;
+  const src = t?.source || "", cut = src.lastIndexOf("/");
+  if (cut > 0 && /\d+px-/.test(src.slice(cut))) return src.slice(0, cut + 1) + src.slice(cut + 1).replace(/\d+px-/, "1280px-");
+  return o.source;
+}
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 function trimText(t, max = MAX_CHARS) {
   t = (t || "").replace(/\s+/g, " ").trim();
@@ -213,8 +224,8 @@ function fromPage(p, kind, extra = {}) {
   const title = p.titles?.normalized || p.title;
   return {
     id: kind + ":" + (p.titles?.canonical || title) + (extra.idSuffix || ""),
-    kind, title, desc: p.description || "",
-    text: trimText(p.extract), img: p.originalimage?.source || p.thumbnail?.source || "",
+    kind, title, name: title, desc: p.description || "",
+    text: trimText(p.extract), img: sizedImg(p.originalimage, p.thumbnail),
     thumb: p.thumbnail?.source || "", url: p.content_urls?.mobile?.page || p.content_urls?.desktop?.page || "",
     imgW: p.originalimage?.width || p.thumbnail?.width || 0, imgH: p.originalimage?.height || p.thumbnail?.height || 0,
     ...extra,
@@ -230,7 +241,8 @@ function buildDay(feed, date, isToday) {
     if (!story || !pages.length || BLOCK.test(story)) return;
     // the most specific link is usually the one with the longest extract among the first few
     const main = pages.slice(0, 4).sort((a, b) => (b.extract || "").length - (a.extract || "").length)[0];
-    const c = fromPage(main, "news", { idSuffix: "@" + dayKey(date) + "#" + i });
+    // id by story text: older days' feeds repeat the same In-the-news items
+    const c = fromPage(main, "news", { idSuffix: "@" + story.slice(0, 80) });
     c.title = story.length > 140 ? trimText(story, 140) : story;
     c.headline = story;
     c.text = trimText(story + " " + (main.extract || ""));
@@ -255,7 +267,7 @@ function buildDay(feed, date, isToday) {
     const im = feed.image, d = stripHtml(im.description?.html || im.description?.text || "");
     if (d && !BLOCK.test(d)) rest.push({
       id: "photo:" + im.title, kind: "photo", title: trimText(d, 120), text: trimText(d),
-      img: im.image.source, thumb: im.thumbnail?.source || im.image.source, imgW: im.image.width, imgH: im.image.height,
+      img: sizedImg(im.image, im.thumbnail), thumb: im.thumbnail?.source || im.image.source, imgW: im.image.width, imgH: im.image.height,
       url: im.file_page || "https://commons.wikimedia.org/wiki/" + encodeURIComponent(im.title || ""),
       credit: stripHtml(im.artist?.html || im.artist?.text || ""),
     });
@@ -266,18 +278,18 @@ function buildDay(feed, date, isToday) {
   const out = [...rest]; news.forEach((n, i) => out.splice(Math.min(out.length, i * 3), 0, n)); return out;
 }
 
-async function loadDay() {
+async function loadDay(depth = 0) {
   const d = S.dayCursor;
   try {
     const feed = await getJSON(`${API}/feed/featured/${ymd(d)}`);
     const isToday = !S.cards.length;
     S.dayCursor = new Date(d.getTime() - 864e5);
     const cards = buildDay(feed, d, isToday);
-    if (!cards.length && isToday) return loadDay();
+    if (!cards.length && isToday && depth < 3) return loadDay(depth + 1);
     return cards;
   } catch (e) {
-    S.dayCursor = new Date(d.getTime() - 864e5);
-    if (e.status === 404 && !S.cards.length) return loadDay(); // today's feed not published yet
+    if (e.status || S.cards.length) S.dayCursor = new Date(d.getTime() - 864e5); // keep today on a network error at boot so a retry gets it
+    if (e.status === 404 && !S.cards.length && depth < 3) return loadDay(depth + 1); // today's feed not published yet
     throw e;
   }
 }
@@ -296,12 +308,12 @@ async function loadRandom(n = 6) {
 function makeQuiz() {
   const pool = S.quizPool.filter(c => !c.quizzed);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
-  const hist = pool.filter(c => c.kind === "history" && c.year);
-  const withDesc = S.quizPool.filter(c => c.desc && c.kind !== "news" && c.kind !== "photo");
+  const hist = pool.filter(c => c.kind === "history" && c.year > 0);
+  const withDesc = S.quizPool.filter(c => c.desc && c.name && c.kind !== "news" && c.kind !== "photo");
   const news = pool.filter(c => c.kind === "news" && c.links?.length);
   const types = [];
   if (hist.length) types.push("year");
-  if (withDesc.length >= 4 && pool.some(c => c.desc && c.kind !== "news" && c.kind !== "photo")) types.push("desc");
+  if (withDesc.length >= 4 && pool.some(c => c.desc && c.name && c.kind !== "news" && c.kind !== "photo")) types.push("desc");
   if (news.length) types.push("news");
   if (!types.length) return null;
   const type = pick(types);
@@ -309,20 +321,21 @@ function makeQuiz() {
     const c = pick(hist); c.quizzed = true;
     const y = +c.year, opts = new Set([y]);
     const spread = Math.abs(2026 - y) > 300 ? 60 : Math.abs(2026 - y) > 80 ? 20 : 6;
-    while (opts.size < 4) { const v = y + Math.round((Math.random() * 2 - 1) * spread) || y + 1; if (v !== y && v <= 2026 && v > 0) opts.add(v); }
+    for (let g = 0; opts.size < 4 && g < 500; g++) { const v = y + Math.round((Math.random() * 2 - 1) * spread) || y + 1; if (v !== y && v <= 2026 && v > 0) opts.add(v); }
     return { id: "quiz:" + c.id, kind: "quiz", q: `In which year did this happen? “${trimText(c.event, 160)}”`, img: c.thumb,
       opts: shuffle([...opts]).map(String), answer: String(y), explain: `It happened in ${y}.`, src: c };
   }
   if (type === "desc") {
-    const c = pick(pool.filter(x => x.desc && x.kind !== "news" && x.kind !== "photo")); c.quizzed = true;
-    const others = shuffle(withDesc.filter(x => x.title !== c.title && x.desc !== c.desc)).slice(0, 3).map(x => x.title);
+    const c = pick(pool.filter(x => x.desc && x.name && x.kind !== "news" && x.kind !== "photo")); c.quizzed = true;
+    // .name = article title (history cards' .title is the event sentence); dedupe (same article can be trend + deep)
+    const others = [...new Set(shuffle(withDesc.filter(x => x.name !== c.name && x.desc !== c.desc)).map(x => x.name))].slice(0, 3);
     if (others.length < 3) return null;
-    return { id: "quiz:" + c.id, kind: "quiz", q: `Which one is “${c.desc}”?`, opts: shuffle([c.title, ...others]), answer: c.title,
-      explain: `${c.title}: ${trimText(c.text, 140)}`, src: c };
+    return { id: "quiz:" + c.id, kind: "quiz", q: `Which one is “${c.desc}”?`, opts: shuffle([c.name, ...others]), answer: c.name,
+      explain: `${c.name}: ${trimText(c.text.replace(/^On this day in [^,]*, /, ""), 140)}`, src: c };
   }
   const c = pick(news); c.quizzed = true;
   const answer = c.topic;
-  const distract = shuffle(S.quizPool.filter(x => x.kind !== "news" && x.title !== answer && x.title.length < 50).map(x => x.title)).slice(0, 3);
+  const distract = [...new Set(shuffle(S.quizPool.filter(x => x.kind !== "news" && x.name && x.name !== answer && x.name.length < 50)).map(x => x.name))].slice(0, 3);
   if (distract.length < 3) return null;
   return { id: "quiz:" + c.id, kind: "quiz", q: `Today's news: “${trimText(c.headline, 170)}” Which topic is this story about?`, img: c.thumb,
     opts: shuffle([answer, ...distract]), answer, explain: `${answer}: ${trimText(c.text.replace(c.headline, ""), 140)}`, src: c };
@@ -350,7 +363,7 @@ function slideHTML(c, i) {
     </div></section>`;
   const wide = c.imgW && c.imgH && c.imgW / c.imgH > 1.25;
   const bg = c.img
-    ? `<div class="blur" style="background-image:url('${esc(c.img)}')"></div><div class="pic${wide ? " contain" : ""}" style="background-image:url('${esc(c.img)}');--dx:${(Math.random() * 6 - 3).toFixed(1)}%;--dy:${(Math.random() * 4 - 2).toFixed(1)}%"></div>`
+    ? `<div class="blur" style="background-image:url('${cssUrl(c.img)}')"></div><div class="pic${wide ? " contain" : ""}" style="background-image:url('${cssUrl(c.img)}');--dx:${(Math.random() * 6 - 3).toFixed(1)}%;--dy:${(Math.random() * 4 - 2).toFixed(1)}%"></div>`
     : `<div class="grad" style="--g:${GRADS[i % GRADS.length]}"></div>`;
   const label = c.kind === "history" ? `${LABEL.history} · ${esc(c.year)}` : c.kind === "trend" ? `${LABEL.trend} · ${fmtNum(c.views)} reads` : LABEL[c.kind];
   return `<section class="slide" data-i="${i}" aria-label="${esc(c.title)}">
@@ -380,9 +393,13 @@ function resultHTML(c) {
   return c.correct ? `<b style="color:var(--ok)">Correct!</b> ${esc(c.explain)}` : `<b style="color:var(--bad)">Not quite.</b> ${esc(c.explain)}`;
 }
 function visibleCards() {
-  if (S.filter === "news") return S.cards.filter(c => c.kind === "news" || c.kind === "quiz" && c.src?.kind === "news");
+  if (S.filter === "news") return S.cards.filter(c => !c.fromSaved && (c.kind === "news" || c.kind === "quiz" && c.src?.kind === "news"));
   if (S.filter === "saved") return S.cards.filter(c => S.saved[c.id]);
-  return S.cards;
+  return S.cards.filter(c => !c.fromSaved);
+}
+// cards saved on earlier visits are not in S.cards after a reload: bring them back (hidden from For you / News)
+function restoreSaved() {
+  for (const v of Object.values(S.saved)) if (v && v.text && v.kind && !S.seen.has(v.id)) { S.seen.add(v.id); S.cards.push({ ...v, fromSaved: true }); }
 }
 let rendered = 0;
 function renderFeed(reset) {
@@ -417,7 +434,7 @@ async function loadMore() {
     appendCards(cards);
     $("#loading").hidden = true;
   } catch {
-    $("#loading").textContent = "Couldn't reach the news. Check your connection and pull to refresh.";
+    $("#loading").textContent = "Couldn't reach the news. Check your connection and tap to retry.";
   } finally { S.loadingMore = false; }
 }
 
@@ -434,7 +451,7 @@ if (synth) { pickVoice(); synth.onvoiceschanged = pickVoice; }
 let speakToken = 0, barTimer = 0;
 function stopPlayback() {
   speakToken++;
-  if (synth) synth.cancel();
+  if (synth) { if (synth.paused) synth.resume(); synth.cancel(); } // Safari: cancel() while paused leaves later utterances stuck paused
   clearInterval(barTimer);
   document.querySelectorAll(".w.on").forEach(w => w.classList.remove("on"));
 }
@@ -457,6 +474,8 @@ function play(slide) {
 function speak(text, slide, bar) {
   const tok = ++speakToken;
   const u = new SpeechSynthesisUtterance(text);
+  window.__ssUtt = u; // keep a reference: GC'd utterances may never fire onend/onboundary
+  if (!voice) pickVoice();
   if (voice) u.voice = voice;
   u.lang = voice?.lang || "en-US"; u.rate = 1.04; u.pitch = 1;
   const words = slide ? [...slide.querySelectorAll(".cap .w")] : [];
@@ -504,7 +523,7 @@ function showProgress() {
       <div class="stat"><b>${acc}</b><span>quiz score</span></div>
     </div>
     <h1 style="font-size:18px;margin-bottom:10px">Saved</h1>
-    ${items.length ? `<div class="grid">${items.map(s => `<a class="tile" href="${esc(s.url)}" target="_blank" rel="noopener" style="background-image:url('${esc(s.thumb || "")}')"><span>${esc(trimText(s.title, 70))}</span></a>`).join("")}</div>`
+    ${items.length ? `<div class="grid">${items.map(s => `<a class="tile" href="${esc(s.url)}" target="_blank" rel="noopener" style="background-image:url('${cssUrl(s.thumb)}')"><span>${esc(trimText(s.title, 70))}</span></a>`).join("")}</div>`
       : `<div class="empty">Tap the bookmark on any card to keep it here.</div>`}
     <p class="lead" style="margin-top:24px;font-size:13px">Content from Wikipedia and Wikimedia Commons under CC BY-SA. Tap “Read” on any card for the full article and its sources.</p>`);
 }
@@ -568,7 +587,7 @@ $("#feed").addEventListener("click", e => {
   const opt = e.target.closest(".opt"); if (opt && c) { answer(slide, c, opt.dataset.opt); return; }
   const act = e.target.closest("[data-act]");
   if (act && c) { if (act.dataset.act === "like") like(slide, c); if (act.dataset.act === "save") {
-      if (S.saved[c.id]) delete S.saved[c.id]; else S.saved[c.id] = { id: c.id, title: c.title, thumb: c.thumb, url: c.url };
+      if (S.saved[c.id]) delete S.saved[c.id]; else { const { quizzed, fromSaved, links, ...keep } = c; S.saved[c.id] = keep; }
       store.set("saved", S.saved); act.classList.toggle("saved", !!S.saved[c.id]); act.lastElementChild.textContent = S.saved[c.id] ? "Saved" : "Save";
       toast(S.saved[c.id] ? "Saved" : "Removed from saved"); }
     if (act.dataset.act === "share") share(c); return; }
@@ -582,11 +601,12 @@ $("#feed").addEventListener("click", e => {
   setTimeout(() => { if (lastTap === now) { if (synth?.speaking && !synth.paused) { synth.pause(); toast("Paused"); } else if (synth?.paused) { synth.resume(); } else play(slide); } }, 330);
 });
 document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
-  S.filter = b.dataset.feed;
+  S.filter = b.dataset.feed; if (S.filter === "saved") restoreSaved();
   document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", x === b ? "true" : "false"));
   stopPlayback(); renderFeed(true);
 }));
 $("#sound").addEventListener("click", () => setSound(!S.sound));
+$("#loading").addEventListener("click", () => { if (!S.cards.length) { $("#loading").textContent = "Loading today's world…"; loadMore(); } });
 $("#streakBtn").addEventListener("click", showProgress);
 $("#closeScreen").addEventListener("click", () => history.back());
 window.addEventListener("popstate", () => { if (!$("#screen").hidden) closeScreen(); });
@@ -599,9 +619,7 @@ document.addEventListener("keydown", e => {
 });
 function begin(withSound) {
   S.started = true; $("#start").hidden = true; store.set("onboarded", true);
-  if (withSound && synth) { // unlock speech on iOS inside the tap
-    const u = new SpeechSynthesisUtterance(" "); u.volume = 0; synth.speak(u);
-  }
+  // the first speak() happens synchronously inside this tap, which unlocks speech on iOS
   setSound(withSound && !!synth);
 }
 $("#go").addEventListener("click", () => begin(true));
