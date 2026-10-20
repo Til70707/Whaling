@@ -1,5 +1,5 @@
-// Smartscroll service worker: caches the app shell only; content always comes fresh from Wikipedia.
-const CACHE = "smartscroll-v2";
+// Scrolltun service worker: caches the app shell only; content always comes fresh from Wikipedia.
+const CACHE = "scrolltun-v1";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg", "./icon-180.png", "./icon-192.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => {
